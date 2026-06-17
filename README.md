@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Meme Frog Mountain Scene</title>
+
+<style>
+body{
+    margin:0;
+    overflow:hidden;
+    font-family:Arial;
+    color:white;
+}
+
+#ui{
+    position:fixed;
+    top:10px;
+    left:10px;
+    z-index:10;
+    background:rgba(0,0,0,0.4);
+    padding:10px;
+    border-radius:10px;
+}
+
+#bar{
+    width:260px;
+    height:18px;
+    background:#0a2a12;
+    border-radius:10px;
+    overflow:hidden;
+    margin-top:5px;
+    border:1px solid #00ff66;
+}
+
+#fill{
+    height:100%;
+    width:100%;
+    background:linear-gradient(90deg,#00ff66,#00cc44);
+    box-shadow:0 0 12px #00ff66;
+}
+
+#status{
+    margin-top:6px;
+    font-size:16px;
+}
+</style>
+
+</head>
+
+<body>
+
+<div id="ui">
+    <div>💰 Price: <span id="price">loading</span></div>
+    <div id="bar"><div id="fill"></div></div>
+    <div id="status">ALIVE</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+
+<script>
+
+let health = 100;
+let lastPrice = null;
+
+const PAIR =
+"9bqarngdyghczj4f2n9aetcc42bgg4nggtjucpxuqthi";
+
+// ---------- SCENE ----------
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87b7ff);
+scene.fog = new THREE.Fog(0x87b7ff, 6, 20);
+
+const camera = new THREE.PerspectiveCamera(
+    60,
+    window.innerWidth/window.innerHeight,
+    0.1,
+    1000
+);
+
+camera.position.z = 6;
+camera.position.y = 1.5;
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// LIGHTS
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(5,10,5);
+scene.add(light);
+
+// ---------- SUN ----------
+function createSun(){
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 512;
+
+    const ctx = canvas.getContext("2d");
+
+    const grad = ctx.createRadialGradient(256,256,50,256,256,256);
+    grad.addColorStop(0,"#fff7a8");
+    grad.addColorStop(1,"#ffb300");
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(256,256,200,0,Math.PI*2);
+    ctx.fill();
+
+    ctx.fillStyle = "black";
+    ctx.font = "bold 48px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Just Live",256,256);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({map:tex}));
+
+    sprite.position.set(6,4,-5);
+    sprite.scale.set(3,3,1);
+
+    scene.add(sprite);
+}
+createSun();
+
+// ---------- MOUNTAINS ----------
+function makeMountain(x, z, scale, color){
+
+    const m = new THREE.Mesh(
+        new THREE.ConeGeometry(2,4,6),
+        new THREE.MeshStandardMaterial({color:color})
+    );
+
+    m.position.set(x, -1.5, z);
+    m.scale.set(scale, scale, scale);
+
+    return m;
+}
+
+scene.add(makeMountain(-6,-10,3,0x4a6b8a));
+scene.add(makeMountain(0,-12,4,0x3f5f7a));
+scene.add(makeMountain(6,-10,3.5,0x4a6b8a));
+
+scene.add(makeMountain(-4,-6,2.5,0x5f86a6));
+scene.add(makeMountain(4,-6,2.5,0x5f86a6));
+
+const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(50,50),
+    new THREE.MeshStandardMaterial({color:0x2d5a2d})
+);
+
+ground.rotation.x = -Math.PI/2;
+ground.position.y = -2;
+scene.add(ground);
+
+// ---------- CHARACTER ----------
+const character = new THREE.Group();
+scene.add(character);
+
+const skinMat = new THREE.MeshStandardMaterial({color:0xf2c9a0});
+
+// HEAD
+const head = new THREE.Mesh(
+    new THREE.SphereGeometry(1.2,32,32),
+    skinMat
+);
+
+character.add(head);
+
+// HAT
+const hat = new THREE.Group();
+
+const hatTop = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.7,0.7,0.8,24),
+    new THREE.MeshStandardMaterial({color:0x222222})
+);
+
+const brim = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.1,1.1,0.1,24),
+    new THREE.MeshStandardMaterial({color:0x111111})
+);
+
+hatTop.position.y = 0.4;
+
+hat.add(hatTop);
+hat.add(brim);
+
+hat.position.y = 1.25;
+
+head.add(hat);
+
+// NECK
+const neck = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.6,0.6,0.6,20),
+    skinMat
+);
+
+neck.position.y = -1;
+head.add(neck);
+
+// CHAIN
+const chainMat = new THREE.MeshStandardMaterial({
+    color:0xffd700,
+    metalness:1,
+    roughness:0.25
+});
+
+const chainGroup = new THREE.Group();
+
+for(let i=0;i<14;i++){
+
+    const link = new THREE.Mesh(
+        new THREE.TorusGeometry(0.18,0.06,10,18),
+        chainMat
+    );
+
+    const angle = (i/14)*Math.PI*2;
+
+    link.position.set(
+        Math.cos(angle)*0.75,
+        -1.05,
+        Math.sin(angle)*0.25
+    );
+
+    link.rotation.x = Math.PI/2;
+    link.rotation.z = angle;
+
+    chainGroup.add(link);
+}
+
+head.add(chainGroup);
+
+// EYES
+function eye(x){
+
+    const g = new THREE.Group();
+
+    const w = new THREE.Mesh(
+        new THREE.SphereGeometry(0.4,20,20),
+        new THREE.MeshStandardMaterial({color:0xffffff})
+    );
+
+    const p = new THREE.Mesh(
+        new THREE.SphereGeometry(0.18,20,20),
+        new THREE.MeshStandardMaterial({color:0x000000})
+    );
+
+    p.position.z = 0.25;
+
+    g.add(w);
+    g.add(p);
+
+    g.position.set(x,0.25,1.05);
+
+    head.add(g);
+}
+
+eye(-0.42);
+eye(0.42);
+
+// MOUTH
+const mouth = new THREE.Mesh(
+    new THREE.SphereGeometry(0.35,20,20),
+    new THREE.MeshStandardMaterial({color:0x111111})
+);
+
+mouth.position.set(0,-0.55,1.25);
+
+head.add(mouth);
+
+head.position.y = 1.5;
+
+// BODY
+const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.15,0.15,2,10),
+    skinMat
+);
+
+character.add(body);
+
+// ---------- PRICE ----------
+async function update(){
+
+    try{
+
+        const res = await fetch(
+        "https://api.dexscreener.com/latest/dex/pairs/solana/" + PAIR
+        );
+
+        const data = await res.json();
+
+        const price = parseFloat(data.pair.priceUsd);
+
+        document.getElementById("price").innerText =
+        price.toFixed(8);
+
+        if(!window.minPrice) window.minPrice = price;
+        if(!window.maxPrice) window.maxPrice = price;
+
+        window.minPrice = Math.min(window.minPrice, price);
+        window.maxPrice = Math.max(window.maxPrice, price);
+
+        const range = window.maxPrice - window.minPrice || 1;
+
+        health = ((price - window.minPrice) / range) * 100;
+
+        health = Math.max(0,Math.min(100,health));
+
+        document.getElementById("fill").style.width = health + "%";
+
+    }catch(e){
+        console.log(e);
+    }
+}
+
+setInterval(update,4000);
+update();
+
+// ---------- ANIMATE ----------
+function animate(){
+
+    requestAnimationFrame(animate);
+
+    character.position.y = Math.sin(Date.now()*0.002)*0.12;
+    head.rotation.z = Math.sin(Date.now()*0.0025)*0.06;
+
+    renderer.render(scene,camera);
+}
+
+animate();
+
+</script>
+
+</body>
+</html>
